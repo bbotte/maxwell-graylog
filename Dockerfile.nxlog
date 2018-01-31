@@ -1,0 +1,20 @@
+FROM ubuntu:14.04
+
+ENV NXLOG_VERSION=2.9.1716
+
+# COPY sources.list /etc/apt/
+RUN apt-get update && \
+    apt-get install -y libapr1 libdbi1 libperl5.18 libpcre3 openssl
+
+ADD https://nxlog.co/system/files/products/files/348/nxlog-ce_2.9.1716_ubuntu_1404_amd64.deb /root/
+RUN dpkg -i /root/nxlog-ce_${NXLOG_VERSION}_ubuntu_1404_amd64.deb
+RUN apt-get autoremove -y -q
+
+# VOLUME /var/lib/docker/volumes/34a93aa0aed39b75ca72c3bc775397626936f732b158400e59d1e330d4a0ff06/_data /var/lib/mysql
+
+ENV graylogserver=172.16.0.67 graylog_maxwell_gelf_port=12201 graylog_maxwell_source_collector=9505ab9e-50d4-4261-8293-cfb596069ba2
+COPY nxlog.conf /etc/nxlog/
+
+COPY nxlog-entrypoint.sh /root
+
+ENTRYPOINT ["/root/nxlog-entrypoint.sh"]

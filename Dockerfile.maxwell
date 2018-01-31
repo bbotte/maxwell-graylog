@@ -1,0 +1,41 @@
+FROM maven:3.5-jdk-8
+# FROM openjdk:8-jdk
+ENV MAXWELL_VERSION=1.12.0 KAFKA_VERSION=0.11.0.1
+
+RUN mkdir -p /app/maxwell \
+    && mkdir -p /var/lib/mysql \
+    && mkdir -p ~/.ssh
+## compile: wget https://github.com/seanlook/maxwell/archive/v${MAXWELL_VERSION}.tar.gz maxwell-src-${MAXWELL_VERSION}.tar.gz
+COPY maxwell-src-${MAXWELL_VERSION}.tar.gz /app
+
+# COPY sources.list /etc/apt/
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential libmariadbclient-dev libglib2.0-dev zlib1g-dev libpcre3-dev g++ cmake make \
+    mysql-client git \
+    && wget -q https://launchpad.net/mydumper/0.9/0.9.1/+download/mydumper-0.9.1.tar.gz && tar -zxf mydumper-0.9.1.tar.gz \
+    && cd mydumper-0.9.1 && cmake . && make && make install \
+    && cd ../ && rm -rf mydumper-0.9.1 \
+    && tar -zxf /app/maxwell-src-${MAXWELL_VERSION}.tar.gz -C /app \
+    && mv /app/maxwell-${MAXWELL_VERSION} /app/workspace && cd /app/workspace \
+    && KAFKA_VERSION=$KAFKA_VERSION make package MAXWELL_VERSION=$MAXWELL_VERSION \
+    && mv /app/workspace/target/maxwell-$MAXWELL_VERSION/maxwell-$MAXWELL_VERSION/* /app/maxwell/ \
+    && apt-get remove -y make cmake g++ && apt-get -y autoremove && apt-get clean && apt-get autoclean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /usr/share/doc/* /app/workspace/ \
+    && echo "$MAXWELL_VERSION" > /REVISION
+
+# VOLUME db_data /var/lib/mysql # maxwell-entrypoint.sh use /var/lib/mysql
+# VOLUME /var/lib/docker/volumes/34a93aa0aed39b75ca72c3bc775397626936f732b158400e59d1e330d4a0ff06/_data /var/lib/mysql
+
+WORKDIR /app/maxwell
+COPY maxwell-entrypoint.sh /app/maxwell/
+COPY maxwell-retrive-tablemeta.sh /app/maxwell/
+COPY id_rsa /root/.ssh/
+
+ENV MYSQL_HOST="" MYSQL_USER="" MYSQL_PASSWORD="" MYSQL_HOST_GIT=""
+ENV producer="file" output_file=/var/lib/mysql/maxwell_binlog_stream.json init_position="" include_dbs="" include_tables="" include_column_values="" exclude_columns="" MAXWELL_OPTS=""
+ENV rabbitmq_host=maxwell-rabbitmq-server rabbitmq_virtual_host=/ rabbitmq_exchange_type=topic
+ENV kafka_server="like hosta:9092,hostb:9092" kafka_producer_partition_by=database
+ENV JAVA_OPTS ${JAVA_OPTS} -Xms128M -Xmx256M
+
+ENTRYPOINT ["./maxwell-entrypoint.sh"]

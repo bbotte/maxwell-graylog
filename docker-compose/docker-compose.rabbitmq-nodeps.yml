@@ -1,0 +1,51 @@
+version: '2.2'
+
+services:
+  mysql-binlogsvr:
+    image: registry-vpc.cn-hangzhou.aliyuncs.com/workec/mysql_binlogsvr:1.1.3
+    volumes:
+      - maxwellgraylog_db_data:/var/lib/mysql
+    environment:
+      DBINSTANCE_ID: rm-bp19t9it7c2998633
+      START_TIME: '2018-01-18 12:00:00'
+      END_TIME: '2018-01-18 16:00:00'
+      ACCESS_ID: LTAIXKHm0v6ob5P4
+      ACCESS_SECRET: F7gP************YNll19no
+      MYSQL_ROOT_PASSWORD: strongpassword
+
+  maxwell-rabbitmq-server:
+    image: registry-vpc.cn-hangzhou.aliyuncs.com/workec/maxwell_rabbitmq:0.4.3
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    
+  maxwell-svr:
+    image: registry-vpc.cn-hangzhou.aliyuncs.com/workec/maxwell_graylog:1.1.3
+    depends_on:
+      - mysql-binlogsvr
+    enviroment:
+      producer: rabbitmq
+      MYSQL_HOST:
+      MYSQL_USER:
+      MYSQL_PASSWORD:
+      MYSQL_HOST_GIT: db_crm_shard3
+      include_dbs:
+      include_tables: t_eccrm_detail
+      include_column_values:
+      exclude_columns:
+      init_position:
+      rabbitmq_host: maxwell-rabbitmq-server
+      rabbitmq_virtual_host: /maxwell
+      rabbitmq_user: admin
+      rabbitmq_pass: admin
+      kafka_server:
+      kafka_producer_partition_by:
+      MAXWELL_OPTS:
+    vomumes:
+      - maxwellgraylog_db_data:/var/lib/mysql
+    links:
+      - mysql-binlogsvr:mysql_binlogsvr
+      - maxwell-rabbitmq-server
+
+volumes:
+  maxwellgraylog_db_data:

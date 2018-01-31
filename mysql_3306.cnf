@@ -1,0 +1,121 @@
+[mysql]
+port=3306
+# socket=/data/mysql_3306/data/mysql.sock
+no-auto-rehash
+default-character-set=utf8mb4
+prompt=\\u@\\d \\R:\\m> 
+
+[client]
+port = 3306
+# socket = /var/lib/mysql/mysql.sock
+
+[isamchk]
+key_buffer_size = 16M
+
+[mysqld]
+server_id=11101
+basedir = /usr
+bind-address = 0.0.0.0
+port = 3306
+# user = root
+character-set-server = utf8mb4
+collation-server     = utf8mb4_general_ci
+datadir = /var/lib/mysql
+innodb_file_per_table=1
+# log-error = /var/log/mysqld_3306.log
+# slow_query_log_file = /var/log/mysql-slow_3306.log
+# socket = /var/lib/mysql/mysql.sock
+# pid-file = /var/run/mysqld/mysqld_3306.pid
+
+event_scheduler = 1
+transaction-isolation = READ-COMMITTED
+sql_mode="NO_ENGINE_SUBSTITUTION"
+
+innodb_buffer_pool_size = 256M
+innodb_flush_log_at_trx_commit = 2
+innodb_log_files_in_group=2
+innodb_log_file_size=128M
+# innodb_log_file_size=1572864000
+key_buffer_size = 16M
+
+long_query_time = 5
+max_allowed_packet = 64M
+
+log-bin = mysql-bin
+binlog_format = ROW
+binlog_row_image = FULL
+expire_logs_days = 99
+max_binlog_size = 512M
+binlog_checksum = CRC32
+binlog_cache_size = 2097152
+sync_binlog = 0
+
+master-info-repository=file
+relay-log-info_repository=file
+relay-log=mysqld-relay-bin
+log-slave-updates
+gtid_mode=ON
+enforce-gtid-consistency=on
+
+innodb_read_io_threads=4
+innodb_write_io_threads=4
+innodb_lock_wait_timeout=120
+innodb_adaptive_hash_index = 1
+innodb_adaptive_flushing = 1
+innodb_thread_concurrency=16
+# innodb_flush_method=O_DIRECT
+innodb_flush_method=O_DSYNC
+innodb_max_dirty_pages_pct = 75
+
+##INNODB LOG
+innodb_flush_log_at_trx_commit=0
+innodb_checksum_algorithm=innodb
+innodb_data_file_path=ibdata1:20M:autoextend
+
+##[QUERY THREAD TABLE]CACHE
+query_cache_type = 0
+query_cache_size = 0
+query_cache_limit = 2M
+tmp_table_size = 32M
+#thread_cache=8
+thread_cache_size=8
+# thread_concurrency=8
+open_files_limit=65535
+
+##MAX LIMIT
+max_length_for_sort_data=8096
+max_heap_table_size = 32M
+max_connect_errors=9999
+
+##TIME OUT
+wait_timeout=28800
+interactive_timeout=28800
+
+max_connections = 500
+performance_schema = 0
+table_open_cache_instances = 1
+table_open_cache = 4000
+table_definition_cache = 2000
+
+myisam_recover = BACKUP
+
+skip-external-locking
+skip-name-resolve = 1
+slow_query_log = 0
+
+ssl = false
+ssl-ca = /etc/mysql/cacert.pem
+ssl-cert = /etc/mysql/server-cert.pem
+ssl-key = /etc/mysql/server-key.pem
+thread_stack = 256K
+tmpdir = /tmp
+
+[mysqld_safe]
+# log-error = /var/log/mysqld_3306.log
+nice = 0
+# socket = /var/lib/mysql/mysql.sock
+
+[mysqldump]
+max_allowed_packet = 64M
+quick
+quote-names

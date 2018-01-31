@@ -1,0 +1,128 @@
+FROM mysql:5.6.38
+COPY sources.list /etc/apt/
+RUN echo "Asia/Shanghai" > /etc/timezone && dpkg-reconfigure -f noninteractive tzdata
+
+######## install python env 2.7.14 ########
+# ensure local python is preferred over distribution python
+ENV PATH /usr/local/bin:$PATH
+
+# http://bugs.python.org/issue19846
+# > At the moment, setting "LANG=C" on a Linux system *fundamentally breaks Python 3*, and that's not OK.
+ENV LANG C.UTF-8
+
+# runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        libgdbm3 \
+        libsqlite3-0 \
+        libssl1.0.0 \
+        wget
+    # && rm -rf /var/lib/apt/lists/*
+
+ENV GPG_KEY C01E1CAD5EA2C4F0B8E3571504C367C218ADD4FF
+ENV PYTHON_VERSION 2.7.14
+
+RUN set -ex \
+    && buildDeps=' \
+        dpkg-dev \
+        gcc \
+        libbz2-dev \
+        libc6-dev \
+        libdb-dev \
+        libgdbm-dev \
+        libncurses-dev \
+        libreadline-dev \
+        libsqlite3-dev \
+        libssl-dev \
+        make \
+        tcl-dev \
+        tk-dev \
+        xz-utils \
+        zlib1g-dev \
+    ' \
+    && apt-get update && apt-get install -y $buildDeps --no-install-recommends && rm -rf /var/lib/apt/lists/* \
+    \
+    # && wget -O python.tar.xz "https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz" \
+    && wget -O python.tar.xz "http://mirrors.sohu.com/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz" \
+    # && wget -O python.tar.xz.asc "https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz.asc" \
+    && wget -O python.tar.xz.asc "http://mirrors.sohu.com/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz.asc" \
+    && export GNUPGHOME="$(mktemp -d)" \
+    && gpg --keyserver ha.pool.sks-keyservers.net --recv-keys "$GPG_KEY" \
+    && gpg --batch --verify python.tar.xz.asc python.tar.xz \
+    && rm -rf "$GNUPGHOME" python.tar.xz.asc \
+    && mkdir -p /usr/src/python \
+    && tar -xJC /usr/src/python --strip-components=1 -f python.tar.xz \
+    && rm python.tar.xz \
+    \
+    && cd /usr/src/python \
+    && gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)" \
+    && ./configure \
+        --build="$gnuArch" \
+        --enable-shared \
+        --enable-unicode=ucs4 \
+    && make -j "$(nproc)" \
+    && make install \
+    && ldconfig \
+    \
+    && find /usr/local -depth \
+        \( \
+            \( -type d -a \( -name test -o -name tests \) \) \
+            -o \
+            \( -type f -a \( -name '*.pyc' -o -name '*.pyo' \) \) \
+        \) -exec rm -rf '{}' + \
+    && rm -rf /usr/src/python
+
+# if this is called "PIP_VERSION", pip explodes with "ValueError: invalid truth value '<VERSION>'"
+ENV PYTHON_PIP_VERSION 9.0.1
+
+RUN set -ex; \
+    # \
+    # apt-get update; \
+    # apt-get install -y --no-install-recommends wget; \
+    # rm -rf /var/lib/apt/lists/*; \
+    \
+    wget -O get-pip.py 'https://bootstrap.pypa.io/get-pip.py'; \
+    # \
+    # apt-get purge -y --auto-remove wget; \
+    \
+    python get-pip.py \
+        --disable-pip-version-check \
+        --no-cache-dir \
+        "pip==$PYTHON_PIP_VERSION" \
+    ; \
+    pip --version; \
+    \
+    find /usr/local -depth \
+        \( \
+            \( -type d -a \( -name test -o -name tests \) \) \
+            -o \
+            \( -type f -a \( -name '*.pyc' -o -name '*.pyo' \) \) \
+        \) -exec rm -rf '{}' +; \
+    rm -f get-pip.py
+
+
+# install "virtualenv", since the vast majority of users of this image will want it
+# RUN pip install --no-cache-dir virtualenv
+
+# CMD ["python2"]
+
+######## install python env over ########
+######## back to mysql
+
+# VOLUME /data/maxwell/mysql_data /var/lib/mysql
+WORKDIR /var/lib/mysql
+
+COPY requirements.txt ./
+COPY download_binlog.py ./
+
+RUN pip install --no-cache-dir -r requirements.txt && rm -f requirements.txt; \
+    apt-get purge -y --auto-remove $buildDeps 
+
+COPY mysql_3306.cnf /etc/mysql/my.cnf
+
+ENV MYSQL_ROOT_PASSWORD=strongpassword
+ENV ACCESS_ID=LTAIXKHm0v6ob5P4 ACCESS_SECRET=F7gPeO7PO0r9EL1UevhMikYNll19no
+ENV DBINSTANCE_ID="" START_TIME="" END_TIME=""
+
+COPY binlogsvr-entrypoint.sh /usr/local/bin/
+ENTRYPOINT ["binlogsvr-entrypoint.sh"]
